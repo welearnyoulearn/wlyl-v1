@@ -1,0 +1,1075 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WLYL Multi-Tenant Attendance API",
+    "description": "API documentation for the We Learn You Learn (WLYL) School Attendance Admin Portal and Terminal Simulator. Authenticate using either Super Admin token, School Admin token, or a School Hardware API Key.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "WLYL Tech Support",
+      "email": "rc603324@gmail.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "/v1",
+      "description": "Local API v1 base"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Use your session token (e.g., `super_admin_token` or `school_token_SCH001`) or a School Hardware API Key (e.g., `wlyl_sk_A1B2C3D4E5F6`)."
+      }
+    },
+    "schemas": {
+      "School": {
+        "type": "object",
+        "properties": {
+          "school_id": { "type": "string", "example": "SCH001" },
+          "school_name": { "type": "string", "example": "ABC School Hyderabad" },
+          "username": { "type": "string", "example": "school1" },
+          "password": { "type": "string", "example": "school1" },
+          "api_key": { "type": "string", "example": "wlyl_sk_A1B2C3D4E5F6" },
+          "licence_id": { "type": "string", "example": "LC-0042" },
+          "licence_key": { "type": "string", "example": "WLYL-A3F2-K9P1-M7X4-B2Q8" },
+          "machine_id": { "type": "string", "example": "A1B2C3D4" },
+          "issued": { "type": "string", "example": "2026-05-25" },
+          "expires": { "type": "string", "example": "2027-05-25" },
+          "days_left": { "type": "integer", "example": 364 },
+          "active": { "type": "boolean", "example": true },
+          "subscription_start": { "type": "string", "example": "2026-05-25" },
+          "subscription_expire": { "type": "string", "example": "2027-05-25" },
+          "amount_paid": { "type": "number", "example": 15000 },
+          "card_count": { "type": "integer", "example": 4 },
+          "scan_count": { "type": "integer", "example": 120 }
+        }
+      },
+      "Card": {
+        "type": "object",
+        "properties": {
+          "card_id": { "type": "string", "example": "1001001001" },
+          "school_id": { "type": "string", "example": "SCH001" },
+          "name": { "type": "string", "example": "Ravi Kumar" },
+          "department": { "type": "string", "example": "Teaching" },
+          "active": { "type": "boolean", "example": true },
+          "created_at": { "type": "string", "example": "2026-04-01 09:00:00" }
+        }
+      },
+      "Scan": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "REC_20260525_1001001001_1" },
+          "school_id": { "type": "string", "example": "SCH001" },
+          "card_id": { "type": "string", "example": "1001001001" },
+          "name": { "type": "string", "example": "Ravi Kumar" },
+          "department": { "type": "string", "example": "Teaching" },
+          "session": { "type": "string", "example": "Morning" },
+          "scan_time": { "type": "string", "example": "2026-05-25 08:45:00" },
+          "scan_type": { "type": "string", "example": "morning_in" },
+          "is_late": { "type": "boolean", "example": false },
+          "out_time": { "type": "string", "example": "17:15:00" },
+          "duration_minutes": { "type": "integer", "example": 510 },
+          "scan_mode": { "type": "string", "example": "IN_IN_OUT" },
+          "entry_point": { "type": "string", "example": "Main Gate" }
+        }
+      },
+      "LicenceEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "EVT_1716812345678" },
+          "school_id": { "type": "string", "example": "SCH001" },
+          "licence_id": { "type": "string", "example": "LC-0042" },
+          "event": { "type": "string", "example": "app_started" },
+          "details": { "type": "string", "example": "App version v1.2 started successfully." },
+          "server_timestamp": { "type": "string", "example": "2026-05-27 14:00:00" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate User",
+        "description": "Exempt from authentication headers. Authenticates either a Super Admin or a School Admin and returns a session token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "admin" },
+                  "password": { "type": "string", "example": "admin" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "role": { "type": "string", "example": "super" },
+                    "token": { "type": "string", "example": "super_admin_token" },
+                    "school_id": { "type": "string", "example": "SCH001" },
+                    "school_name": { "type": "string", "example": "ABC School Hyderabad" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "bad_request" },
+                    "message": { "type": "string", "example": "Missing credentials" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "unauthorized" },
+                    "message": { "type": "string", "example": "Invalid username or password" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/schools": {
+      "get": {
+        "summary": "Fetch All Schools",
+        "description": "Fetch a list of all schools with live statistics (card count and total scan count). (Super Admin token required)",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of schools retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "schools": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/School" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Super admin access required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "forbidden" },
+                    "message": { "type": "string", "example": "Super admin access required" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a New School",
+        "description": "Register a new school in the system. Generates an API key and a Licence key. The school remains inactive until activated using its licence key. (Super Admin token required)",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["school_name", "username", "password"],
+                "properties": {
+                  "school_name": { "type": "string", "example": "Oakridge International" },
+                  "username": { "type": "string", "example": "school2" },
+                  "password": { "type": "string", "example": "school2" },
+                  "subscription_start": { "type": "string", "example": "2026-05-20" },
+                  "subscription_expire": { "type": "string", "example": "2027-05-20" },
+                  "amount_paid": { "type": "number", "example": 18000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "School registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "School created successfully" },
+                    "school": { "$ref": "#/components/schemas/School" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing school details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "bad_request" },
+                    "message": { "type": "string", "example": "Missing school details" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Username conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "conflict" },
+                    "message": { "type": "string", "example": "Username is already in use" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ping": {
+      "get": {
+        "summary": "API Ping & Authentication Test",
+        "description": "Verifies that the provided token or API key is valid. Returns basic server status and school profile.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Ping successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "server_time": { "type": "string", "example": "2026-05-27 14:40:00" },
+                    "school_id": { "type": "string", "example": "SCH001" },
+                    "school_name": { "type": "string", "example": "ABC School Hyderabad" },
+                    "active": { "type": "boolean", "example": true },
+                    "version": { "type": "string", "example": "v1" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "unauthorized" },
+                    "message": { "type": "string", "example": "Invalid API Key or Token" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/schools/public": {
+      "get": {
+        "summary": "Fetch Public School List",
+        "description": "Exempt from authentication. Returns a basic list of schools including their school_id, name, and api_key.",
+        "responses": {
+          "200": {
+            "description": "Public school list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "schools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "school_id": { "type": "string", "example": "SCH001" },
+                          "school_name": { "type": "string", "example": "ABC School Hyderabad" },
+                          "api_key": { "type": "string", "example": "wlyl_sk_A1B2C3D4E5F6" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/licence/activate": {
+      "post": {
+        "summary": "Activate School Licence Key",
+        "description": "Exempt from authentication. Activates a school licence key and binds it to a specific physical hardware machine ID.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["licence_key", "school_name", "machine_id"],
+                "properties": {
+                  "licence_key": { "type": "string", "example": "WLYL-A3F2-K9P1-M7X4-B2Q8" },
+                  "school_name": { "type": "string", "example": "ABC School Hyderabad" },
+                  "machine_id": { "type": "string", "example": "A1B2C3D4" },
+                  "app_version": { "type": "string", "example": "v1.0.0" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Licence key activated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "licence_id": { "type": "string", "example": "LC-0042" },
+                    "school": { "type": "string", "example": "ABC School Hyderabad" },
+                    "issued": { "type": "string", "example": "2026-05-25" },
+                    "expires": { "type": "string", "example": "2027-05-25" },
+                    "days_left": { "type": "integer", "example": 364 },
+                    "api_key": { "type": "string", "example": "wlyl_sk_A1B2C3D4E5F6" },
+                    "school_id": { "type": "string", "example": "SCH001" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing details or invalid licence key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "invalid_key" },
+                    "message": { "type": "string", "example": "Licence key is invalid or already used" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Machine mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "machine_mismatch" },
+                    "message": { "type": "string", "example": "Key activated on different machine. Contact support" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/licence/event": {
+      "post": {
+        "summary": "Record License Event",
+        "description": "Allows physical client devices to log start/stop operations, health checks, or debug telemetry.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["event", "licence_id"],
+                "properties": {
+                  "licence_id": { "type": "string", "example": "LC-0042" },
+                  "event": { "type": "string", "example": "app_started" },
+                  "details": { "type": "string", "example": "App version v1.2 started successfully." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event logged successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Event recorded" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/licence/event-logs": {
+      "get": {
+        "summary": "Fetch License Event Logs",
+        "description": "Fetch a history of recorded hardware and licensing logs. School admin token receives school-only logs. Super admin can filter using `?school_id=...` parameter.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "query",
+            "description": "Filter by school ID (Super admin only)",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event logs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "logs": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/LicenceEvent" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scan": {
+      "post": {
+        "summary": "Record Card Scan",
+        "description": "Record an attendance scan event. Scoped to the authenticated school. Performs instant duplicate checks (skips if same scan type was registered on the same day). Automatically calculates duration if receiving an 'out' scan to pair with a 'morning_in'.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["card_id", "scan_time", "scan_type"],
+                "properties": {
+                  "card_id": { "type": "string", "example": "1001001001" },
+                  "scan_time": { "type": "string", "example": "2026-05-27 08:45:00" },
+                  "scan_type": { "type": "string", "enum": ["morning_in", "afternoon_in", "out"], "example": "morning_in" },
+                  "is_late": { "type": "boolean", "example": false },
+                  "scan_mode": { "type": "string", "example": "IN_IN_OUT" },
+                  "entry_point": { "type": "string", "example": "Main Gate" },
+                  "device": { "type": "string", "example": "Main RFID Terminal" },
+                  "source_port": { "type": "integer", "example": 8801 },
+                  "machine_id": { "type": "string", "example": "A1B2C3D4" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scan recorded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Scan recorded" },
+                    "record_id": { "type": "string", "example": "REC_20260527_482" },
+                    "server_time": { "type": "string", "example": "2026-05-27 14:40:00" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate scan detected (already recorded on the same day)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "duplicate" },
+                    "message": { "type": "string", "example": "Already recorded morning_in at 08:45" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scan/batch": {
+      "post": {
+        "summary": "Record Batch Card Scans",
+        "description": "Log multiple scans at once (useful for offline buffers on hardware devices syncing when connection returns).",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["scans"],
+                "properties": {
+                  "scans": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["card_id", "scan_time", "scan_type"],
+                      "properties": {
+                        "local_id": { "type": "string", "description": "Offline local tracking id", "example": "loc_1" },
+                        "card_id": { "type": "string", "example": "1001001001" },
+                        "scan_time": { "type": "string", "example": "2026-05-27 08:45:00" },
+                        "scan_type": { "type": "string", "enum": ["morning_in", "afternoon_in", "out"], "example": "morning_in" },
+                        "is_late": { "type": "boolean", "example": false },
+                        "scan_mode": { "type": "string", "example": "IN_IN_OUT" },
+                        "entry_point": { "type": "string", "example": "Main Gate" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch processing completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "synced": { "type": "integer", "example": 2 },
+                    "failed": { "type": "integer", "example": 1 },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "local_id": { "type": "string", "example": "loc_1" },
+                          "status": { "type": "string", "example": "ok" },
+                          "record_id": { "type": "string", "example": "REC_20260527_523" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cards": {
+      "get": {
+        "summary": "Fetch School Cards",
+        "description": "Fetch RFID cards registered to the authenticated school. Can filter by active status.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "active",
+            "in": "query",
+            "description": "Filter by active state ('true' or 'false')",
+            "required": false,
+            "schema": { "type": "string", "enum": ["true", "false"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cards list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "count": { "type": "integer", "example": 4 },
+                    "cards": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Card" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a Card",
+        "description": "Register a new card (or re-activate an existing deactivated one).",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["card_id", "name", "department"],
+                "properties": {
+                  "card_id": { "type": "string", "example": "1001001007" },
+                  "name": { "type": "string", "example": "Ramesh Kumar" },
+                  "department": { "type": "string", "example": "Teaching" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Card registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Card registered" },
+                    "card_id": { "type": "string", "example": "1001001007" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Card already exists and is active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "card_exists" },
+                    "message": { "type": "string", "example": "Card 1001001007 already registered" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cards/{card_id}": {
+      "put": {
+        "summary": "Update Card Info",
+        "description": "Update details (name, department) of a specific registered card.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "1001001001"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "Ravi Kumar Verma" },
+                  "department": { "type": "string", "example": "Admin" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Card updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Card updated" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Card not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "not_found" },
+                    "message": { "type": "string", "example": "Card not found" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deactivate a Card",
+        "description": "Deactivates a card (marks active = false instead of hard deletion to maintain scan logs integrity).",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "1001001001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Card deactivated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Card deactivated" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Card not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "not_found" },
+                    "message": { "type": "string", "example": "Card not found" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "summary": "SSE Real-Time Sync Channel",
+        "description": "Establish a Server-Sent Events (SSE) stream. Real-time scans are pushed to all connected clients. Clients only receive scans scoped to their respective school (or all if super admin).",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "description": "Your API Key or Admin Session Token",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "super_admin_token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE Connection established",
+            "headers": {
+              "Content-Type": { "schema": { "type": "string", "example": "text/event-stream" } },
+              "Cache-Control": { "schema": { "type": "string", "example": "no-cache" } },
+              "Connection": { "schema": { "type": "string", "example": "keep-alive" } }
+            }
+          }
+        }
+      }
+    },
+    "/attendance": {
+      "get": {
+        "summary": "Query Attendance Logs",
+        "description": "Retrieve detailed lists of scan records. Supports filtering by date range, department, session, scan type, and card ID.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start date (YYYY-MM-DD)",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "2026-05-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End date (YYYY-MM-DD)",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "2026-05-26"
+          },
+          {
+            "name": "card_id",
+            "in": "query",
+            "description": "Filter by RFID card ID",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "department",
+            "in": "query",
+            "description": "Filter by department",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "session",
+            "in": "query",
+            "description": "Filter by session ('Morning' or 'Afternoon')",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "scan_type",
+            "in": "query",
+            "description": "Filter by scan type ('morning_in', 'afternoon_in', 'out')",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "description": "Filter by school ID (Super admin only)",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (defaults to 1)",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Records per page (defaults to 100)",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attendance history list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "total": { "type": "integer", "example": 14 },
+                    "page": { "type": "integer", "example": 1 },
+                    "pages": { "type": "integer", "example": 1 },
+                    "records": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Scan" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/attendance/summary": {
+      "get": {
+        "summary": "Fetch Attendance Summary & KPI",
+        "description": "Calculate aggregated KPIs (present count, absent count, average duration, department averages) for all cards registered to the school.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start date (YYYY-MM-DD)",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "2026-05-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End date (YYYY-MM-DD)",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "2026-05-26"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated KPI report retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "period": {
+                      "type": "object",
+                      "properties": {
+                        "from": { "type": "string", "example": "2026-05-01" },
+                        "to": { "type": "string", "example": "2026-05-26" }
+                      }
+                    },
+                    "total_staff": { "type": "integer", "example": 4 },
+                    "total_working_days": { "type": "integer", "example": 18 },
+                    "summary": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "card_id": { "type": "string", "example": "1001001001" },
+                          "name": { "type": "string", "example": "Ravi Kumar" },
+                          "department": { "type": "string", "example": "Teaching" },
+                          "present": { "type": "integer", "example": 17 },
+                          "late": { "type": "integer", "example": 0 },
+                          "half_day": { "type": "integer", "example": 1 },
+                          "absent": { "type": "integer", "example": 1 },
+                          "avg_duration": { "type": "integer", "description": "Average scan session duration in minutes", "example": 508 }
+                        }
+                      }
+                    },
+                    "department_totals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "department": { "type": "string", "example": "Teaching" },
+                          "staff_count": { "type": "integer", "example": 2 },
+                          "avg_present": { "type": "number", "example": 16.5 },
+                          "avg_absent": { "type": "number", "example": 1.5 }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/attendance/absent": {
+      "get": {
+        "summary": "Fetch Absentees and Latecomers list",
+        "description": "Fetch a list of staff cards that did not check in on a specific date, along with detail on who arrived late.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "Date to query (YYYY-MM-DD)",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "2026-05-25"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Absentees & Latecomers list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "date": { "type": "string", "example": "2026-05-25" },
+                    "absent_count": { "type": "integer", "example": 1 },
+                    "late_count": { "type": "integer", "example": 0 },
+                    "absent": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "card_id": { "type": "string", "example": "1001001004" },
+                          "name": { "type": "string", "example": "Suresh Goud" },
+                          "department": { "type": "string", "example": "Support" }
+                        }
+                      }
+                    },
+                    "late": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "card_id": { "type": "string", "example": "1001001006" },
+                          "name": { "type": "string", "example": "Kalyani Sen" },
+                          "scan_time": { "type": "string", "example": "09:07:00" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
