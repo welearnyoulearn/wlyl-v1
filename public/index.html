@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WLYL Admin - Attendance Control & Terminal Simulator</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">W</div>
+      <div class="brand-name">WLYL Multi-Tenant Portal</div>
+    </div>
+    
+    <!-- User Profile Session Indicator -->
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <div id="user-profile-badge" style="display: none; align-items: center; gap: 0.5rem; font-size: 0.8rem;">
+        <span style="color: var(--color-text-secondary);">Logged in as:</span>
+        <strong id="session-username" style="color: var(--color-primary);">School Admin</strong>
+        <button class="btn btn-secondary" onclick="handleLogout()" style="font-size: 0.7rem; padding: 0.25rem 0.5rem;"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+      </div>
+      
+      <div class="server-status-badge" id="server-status">
+        <div class="server-status-dot"></div>
+        <span>Cloud API: Online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- APP CONTAINER -->
+  <div class="app-container">
+    
+    <!-- LEFT PANEL: School PC Terminal Simulator -->
+    <div class="panel-left">
+      <div class="panel-card terminal-frame">
+        <div class="terminal-header">
+          <div class="terminal-brand"><i class="fa-solid fa-microchip"></i> SCHOOL TERMINAL</div>
+          <div class="connection-switch" id="connection-toggle" title="Click to toggle Network Connection">
+            <div class="connection-status-indicator"></div>
+            <span class="connection-status-text" id="connection-text">ONLINE</span>
+          </div>
+        </div>
+
+        <!-- Terminal School Select -->
+        <div class="form-group" style="background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--color-border);">
+          <label for="select-terminal-school" style="color: var(--color-primary);"><i class="fa-solid fa-school"></i> Active School Simulator</label>
+          <select id="select-terminal-school" class="form-control" style="margin-top: 0.25rem; border-color: var(--color-primary-hover);">
+            <!-- Dynamically populated from API -->
+          </select>
+        </div>
+
+        <!-- Visual RFID Reader -->
+        <div class="scanner-hardware" id="rfid-reader">
+          <i class="fa-solid fa-wifi rfid-signal-icon"></i>
+          <span id="scanner-status-text">TAP CARD HERE</span>
+        </div>
+
+        <!-- Terminal Inputs -->
+        <div class="terminal-controls">
+          <div class="form-group">
+            <label for="select-staff-card">Select Staff Card</label>
+            <select id="select-staff-card" class="form-control">
+              <!-- Dynamically populated based on simulated school selection -->
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="terminal-scan-time">Scan Timestamp</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="datetime-local" id="terminal-scan-time" class="form-control" style="flex: 1;" onclick="try { this.showPicker(); } catch(e) {}">
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 0.72rem; white-space: nowrap; cursor: pointer; color: var(--color-primary); font-weight: 600;">
+                <input type="checkbox" id="live-clock-checkbox" checked onchange="toggleLiveClock()"> Live Clock
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="terminal-scan-type">Scan Type</label>
+            <select id="terminal-scan-type" class="form-control">
+              <option value="auto">Auto-Detect (Time-Based)</option>
+              <option value="morning_in">morning_in</option>
+              <option value="afternoon_in">afternoon_in</option>
+              <option value="out">out</option>
+              <option value="in">in</option>
+            </select>
+          </div>
+
+          <button id="btn-tap-card" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-id-card"></i> Tap Card (RFID Swipe)
+          </button>
+        </div>
+
+        <!-- Local SQLite Status -->
+        <div class="local-sync-card">
+          <div class="sync-stat-row">
+            <span class="sync-stat-label">Local PC DB Engine:</span>
+            <span class="sync-stat-value">SQLite3</span>
+          </div>
+          <div class="sync-stat-row">
+            <span class="sync-stat-label">Local Synced Count:</span>
+            <span class="sync-stat-value" id="local-synced-count">0</span>
+          </div>
+          <div class="sync-stat-row">
+            <span class="sync-stat-label">Offline Sync Queue:</span>
+            <span class="sync-stat-value highlight" id="local-queue-count">0</span>
+          </div>
+          <button id="btn-force-sync" class="btn btn-secondary btn-block" style="margin-top: 0.5rem; font-size: 0.75rem; padding: 0.4rem;">
+            <i class="fa-solid fa-rotate"></i> Sync Queue Now
+          </button>
+        </div>
+
+        <!-- Device Log Console -->
+        <div class="form-group">
+          <label>PC Client Logs Console</label>
+          <div class="terminal-console" id="terminal-console">
+            <!-- Simulated logs -->
+            <div class="console-log info">[System] WLYL client started on HID port 3.</div>
+            <div class="console-log info">[System] Connected to SQLite local DB.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Cloud Admin Dashboard -->
+    <div class="panel-right" style="position: relative;">
+      
+      <!-- LOGIN VIEW OVERLAY (Shown if not logged in) -->
+      <div id="login-overlay-screen" class="panel-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 450px;">
+        <div style="max-width: 360px; width: 100%; display: flex; flex-direction: column; gap: 1.25rem;">
+          <div style="text-align: center; margin-bottom: 0.5rem;">
+            <div class="brand-logo" style="width: 48px; height: 48px; font-size: 1.5rem; margin: 0 auto 0.75rem;">W</div>
+            <h2 style="font-weight: 700; font-size: 1.3rem;">WLYL Admin Cloud Login</h2>
+            <p style="color: var(--color-text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">
+              Manage cards and attendance reports for your school location.
+            </p>
+          </div>
+          
+          <div id="login-error-msg" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--color-danger); border-radius: 8px; padding: 0.5rem; font-size: 0.8rem; text-align: center;">
+            Invalid username or password
+          </div>
+
+          <div class="form-group">
+            <label for="login-username">Username</label>
+            <input type="text" id="login-username" class="form-control" placeholder="e.g. school1">
+          </div>
+
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" class="form-control" placeholder="Password">
+          </div>
+
+          <button onclick="handleLogin()" class="btn btn-primary btn-block" style="padding: 0.75rem;"><i class="fa-solid fa-right-to-bracket"></i> Log In to Dashboard</button>
+          
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.75rem; font-size: 0.75rem; line-height: 1.5;">
+            <span style="color: var(--color-primary); font-weight:600;">Default Credentials:</span><br>
+            &bull; Super Admin: <code>admin</code> / <code>admin</code><br>
+            &bull; School 1 Admin: <code>school1</code> / <code>school1</code><br>
+            &bull; School 2 Admin: <code>school2</code> / <code>school2</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUTHENTICATED PANEL VIEW (Hidden until login) -->
+      <div id="dashboard-portal-view" class="panel-card" style="display: none; flex: 1;">
+        
+        <!-- Tab Navigation -->
+        <div class="tab-bar">
+          <!-- Visible to School Admins -->
+          <button class="tab school-only on" onclick="switchTab('overview')"><i class="fa-solid fa-chart-line"></i> Overview</button>
+          <button class="tab school-only" onclick="switchTab('scan-events')"><i class="fa-solid fa-list"></i> Scan Events Logs</button>
+          <button class="tab school-only" onclick="switchTab('cards-mgmt')"><i class="fa-solid fa-id-card"></i> Manage Cards</button>
+          <button class="tab school-only" onclick="switchTab('reports-mgmt')"><i class="fa-solid fa-file-invoice"></i> Reports & Summary</button>
+          <button class="tab school-only" onclick="switchTab('licence-mgmt')"><i class="fa-solid fa-key"></i> Licence & Settings</button>
+          
+          <!-- Visible to Super Admins -->
+          <button class="tab super-only on" id="tab-super" onclick="switchTab('super-panel')"><i class="fa-solid fa-list-check"></i> Manage Schools</button>
+          <button class="tab super-only" onclick="switchTab('super-scans')"><i class="fa-solid fa-database"></i> Cross-School Scan Logs</button>
+          
+          <!-- Shared Tab -->
+          <button class="tab" onclick="switchTab('api-docs')"><i class="fa-solid fa-code"></i> API Reference</button>
+        </div>
+
+        <!-- License Warning Banner (hidden by default) -->
+        <div id="licence-warning-banner" class="licence-warning-banner">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fa-solid fa-triangle-exclamation" style="color: var(--color-warning); font-size: 1.25rem;"></i>
+            <div>
+              <strong style="color: #fff; display: block; margin-bottom: 0.2rem;">Licence Pending Activation</strong>
+              <span style="color: var(--color-text-secondary); font-size: 0.85rem;">Your school licence is currently inactive. You cannot register staff cards or perform operations until you activate your licence.</span>
+            </div>
+          </div>
+          <button class="btn btn-warning" onclick="switchTab('licence-mgmt')" style="white-space: nowrap; font-size: 0.8rem; padding: 0.5rem 1rem;">
+            <i class="fa-solid fa-key"></i> Activate Licence
+          </button>
+        </div>
+
+        <!-- SUPER ADMIN PANEL (Manage Schools) -->
+        <div id="super-panel" class="panel">
+          <div class="sh">
+            <span>All Registered School Locations</span>
+            <button class="btn btn-primary" onclick="openAddSchoolModal()" style="font-size: 0.75rem; padding: 0.4rem 0.8rem;">
+              <i class="fa-solid fa-plus"></i> Add New School
+            </button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>School ID</th>
+                  <th>School Name</th>
+                  <th>Admin Login</th>
+                  <th>Active Cards</th>
+                  <th>Subscription Period</th>
+                  <th>Amount Paid</th>
+                  <th>Licence Key</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="super-schools-table-body">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SUPER ADMIN PANEL (Cross-School Scans) -->
+        <div id="super-scans" class="panel">
+          <div class="sh">Global Log of API Scan Requests (Super Admin Audit Feed)</div>
+          <div class="filter-row">
+            <div class="form-group">
+              <label for="super-scan-school">School Location</label>
+              <select id="super-scan-school" class="form-control" onchange="loadSuperScans()">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="loadSuperScans()"><i class="fa-solid fa-sync"></i> Refresh Audit Logs</button>
+          </div>
+          
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record ID</th>
+                  <th>School ID</th>
+                  <th>Card ID</th>
+                  <th>Name</th>
+                  <th>Dept</th>
+                  <th>Timestamp</th>
+                  <th>Scan Type</th>
+                  <th>Late</th>
+                </tr>
+              </thead>
+              <tbody id="super-scans-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- OVERVIEW TAB (School Scoped) -->
+        <div id="overview" class="panel active">
+          <div class="widgets-grid">
+            <div class="widget success">
+              <span class="widget-label">Today Present</span>
+              <div class="widget-value" id="stat-present">0</div>
+              <span class="widget-subtext" id="stat-present-sub">Registered teachers present</span>
+            </div>
+            <div class="widget danger">
+              <span class="widget-label">Today Late</span>
+              <div class="widget-value" id="stat-late">0</div>
+              <span class="widget-subtext" id="stat-late-sub">Arrived after split hours</span>
+            </div>
+            <div class="widget warning">
+              <span class="widget-label">Today Absent</span>
+              <div class="widget-value" id="stat-absent">0</div>
+              <span class="widget-subtext" id="stat-absent-sub">Absent / Unscanned</span>
+            </div>
+            <div class="widget info">
+              <span class="widget-label">Licence Validity</span>
+              <div class="widget-value" id="stat-licence">364 Days</div>
+              <span class="widget-subtext" id="stat-licence-expiry">Expires on 2027-05-25</span>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <!-- Left: Realtime streams -->
+            <div>
+              <div class="sh">
+                <span>Live Attendance Stream (Cloud DB)</span>
+                <span class="tag t-green">Real-time</span>
+              </div>
+              <div class="live-stream-container" id="live-attendance-stream">
+                <!-- Dynamically populated rows -->
+              </div>
+            </div>
+            
+            <!-- Right: Department Stats -->
+            <div>
+              <div class="sh">Department Summary</div>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Department</th>
+                      <th>Avg Present</th>
+                      <th>Avg Absent</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dept-summary-table-body">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="sh" style="margin-top: 2rem;">Quick Database Actions</div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary btn-block" onclick="refreshDashboard()"><i class="fa-solid fa-sync"></i> Refresh</button>
+                <button class="btn btn-danger btn-block" onclick="resetDatabase()"><i class="fa-solid fa-trash-can"></i> Reset DB</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCAN EVENTS LOGS TAB (School Scoped) -->
+        <div id="scan-events" class="panel">
+          <div class="sh">Raw Attendance Scan Records (API Endpoint logs)</div>
+          <div class="filter-row">
+            <div class="form-group">
+              <label for="scan-filter-search">Search Staff</label>
+              <input type="text" id="scan-filter-search" class="form-control" placeholder="Name or Card ID..." oninput="loadRawScans()">
+            </div>
+            <div class="form-group">
+              <label for="scan-filter-type">Scan Type</label>
+              <select id="scan-filter-type" class="form-control" onchange="loadRawScans()">
+                <option value="">All Scans</option>
+                <option value="morning_in">morning_in</option>
+                <option value="afternoon_in">afternoon_in</option>
+                <option value="out">out</option>
+                <option value="in">in</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="scan-filter-dept">Department</label>
+              <select id="scan-filter-dept" class="form-control" onchange="loadRawScans()">
+                <option value="">All Departments</option>
+                <option value="Teaching">Teaching</option>
+                <option value="Admin">Admin</option>
+                <option value="Support">Support</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="scan-filter-from">From Date</label>
+              <input type="date" id="scan-filter-from" class="form-control" onchange="loadRawScans()" onclick="try { this.showPicker(); } catch(e) {}">
+            </div>
+            <div class="form-group">
+              <label for="scan-filter-to">To Date</label>
+              <input type="date" id="scan-filter-to" class="form-control" onchange="loadRawScans()" onclick="try { this.showPicker(); } catch(e) {}">
+            </div>
+            <div class="form-group" style="align-self: flex-end; display: flex; gap: 4px; margin-bottom: 0;">
+              <button class="btn btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.72rem; min-height: unset; height: 32px;" onclick="setScanPreset('this-month')" type="button">This Month</button>
+              <button class="btn btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.72rem; min-height: unset; height: 32px;" onclick="setScanPreset('today')" type="button">Today</button>
+            </div>
+            <button class="btn btn-secondary" onclick="loadRawScans()"><i class="fa-solid fa-filter"></i> Apply</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record ID</th>
+                  <th>Card ID</th>
+                  <th>Name</th>
+                  <th>Dept</th>
+                  <th>Session</th>
+                  <th>Scan Time</th>
+                  <th>Type</th>
+                  <th>Late</th>
+                  <th>Exit / Duration</th>
+                </tr>
+              </thead>
+              <tbody id="raw-scans-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MANAGE CARDS TAB (School Scoped) -->
+        <div id="cards-mgmt" class="panel">
+          <div class="sh">
+            <span id="school-card-mgmt-title">Registered Staff RFID Cards</span>
+            <button class="btn btn-primary" onclick="openRegisterCardModal()" style="font-size: 0.75rem; padding: 0.4rem 0.8rem;">
+              <i class="fa-solid fa-plus"></i> Register New Card
+            </button>
+          </div>
+          
+          <div class="card-grid" id="staff-cards-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- REPORTS TAB (School Scoped) -->
+        <div id="reports-mgmt" class="panel">
+          <div class="sh">Attendance Reports Query Engine</div>
+          
+          <div class="filter-row">
+            <div class="form-group">
+              <label for="report-filter-search">Search Staff</label>
+              <input type="text" id="report-filter-search" class="form-control" placeholder="Name or Card ID..." oninput="filterReportTable()">
+            </div>
+            <div class="form-group">
+              <label for="report-from-date">From Date</label>
+              <input type="date" id="report-from-date" class="form-control" onclick="try { this.showPicker(); } catch(e) {}">
+            </div>
+            <div class="form-group">
+              <label for="report-to-date">To Date</label>
+              <input type="date" id="report-to-date" class="form-control" onclick="try { this.showPicker(); } catch(e) {}">
+            </div>
+            <div class="form-group" style="align-self: flex-end; display: flex; gap: 4px; margin-bottom: 0;">
+              <button class="btn btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.72rem; min-height: unset; height: 32px;" onclick="setReportPreset('this-month')" type="button">This Month</button>
+              <button class="btn btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.72rem; min-height: unset; height: 32px;" onclick="setReportPreset('today')" type="button">Today</button>
+            </div>
+            <button class="btn btn-primary" onclick="generateReport()"><i class="fa-solid fa-gears"></i> Calculate Stats</button>
+            <button class="btn btn-secondary" onclick="generateAbsentList()"><i class="fa-solid fa-user-slash"></i> View Absentees</button>
+            <button class="btn btn-secondary" id="btn-export-excel" onclick="exportReportToExcel()" style="display: none;"><i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Export to Excel</button>
+          </div>
+
+          <div id="report-summary-view">
+            <div class="sh" id="report-title-text">Attendance Stats Summary</div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Card ID</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Present Days</th>
+                    <th>Absent Days</th>
+                    <th>Late Scans</th>
+                    <th>Half Days</th>
+                    <th>Avg Duration (Min)</th>
+                  </tr>
+                </thead>
+                <tbody id="report-summary-table-body">
+                  <tr><td colspan="8" style="text-align: center; color: var(--color-text-secondary);">Select a date range and click Calculate Stats.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="report-absent-view" style="display: none;">
+            <div class="sh" id="absent-title-text">Absent List for Date</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+              <div>
+                <h4 style="margin-bottom: 0.5rem; color: var(--color-danger); font-size: 0.9rem;">Absent Staff (<span id="absent-count">0</span>)</h4>
+                <div class="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Card ID</th>
+                        <th>Name</th>
+                        <th>Department</th>
+                      </tr>
+                    </thead>
+                    <tbody id="report-absent-table-body">
+                      <!-- Dynamically populated -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <div>
+                <h4 style="margin-bottom: 0.5rem; color: var(--color-warning); font-size: 0.9rem;">Late Arrivals (<span id="late-count">0</span>)</h4>
+                <div class="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Card ID</th>
+                        <th>Name</th>
+                        <th>Check-in Time</th>
+                      </tr>
+                    </thead>
+                    <tbody id="report-late-table-body">
+                      <!-- Dynamically populated -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LICENCE TAB (School Scoped) -->
+        <div id="licence-mgmt" class="panel">
+          <div class="licence-status-grid">
+            
+            <!-- License Detail -->
+            <div class="panel-card licence-card" id="licence-details-box">
+              <div class="licence-header">
+                <h3 style="font-size: 1.1rem; font-weight:600;">Licence Status</h3>
+                <span class="licence-badge active" id="licence-status-badge">Activated</span>
+              </div>
+              
+              <div class="licence-details">
+                <div class="licence-detail-label">School Name:</div>
+                <div class="licence-detail-value" id="licence-school-name">ABC School Hyderabad</div>
+
+                <div class="licence-detail-label">Licence Key:</div>
+                <div class="licence-detail-value key" id="licence-key-val">-</div>
+
+                <div class="licence-detail-label">Licence ID:</div>
+                <div class="licence-detail-value" id="licence-id-val">-</div>
+
+                <div class="licence-detail-label">Machine ID Lock:</div>
+                <div class="licence-detail-value" id="licence-machine-id">-</div>
+
+                <div class="licence-detail-label">Issued Date:</div>
+                <div class="licence-detail-value" id="licence-issued">-</div>
+
+                <div class="licence-detail-label">Expiry Date:</div>
+                <div class="licence-detail-value" id="licence-expires">-</div>
+
+                <div class="licence-detail-label">Days Left:</div>
+                <div class="licence-detail-value" id="licence-days-left" style="color: var(--color-success); font-weight: 700;">-</div>
+              </div>
+            </div>
+
+            <!-- Activation -->
+            <div class="panel-card" style="background: rgba(0, 0, 0, 0.2);">
+              <div class="panel-title" style="border: none; margin-bottom: 0.5rem;"><i class="fa-solid fa-toggle-on"></i> Licence Keys Activation</div>
+              <p style="font-size: 0.8rem; color: var(--color-text-secondary); margin-bottom: 1rem;">
+                Activate your licence key here. Keys can be created by the Super Admin.
+              </p>
+              
+              <div class="form-group" style="margin-bottom: 0.75rem;">
+                <label for="act-key">Licence Key</label>
+                <input type="text" id="act-key" class="form-control" placeholder="WLYL-XXXX-XXXX-XXXX-XXXX">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0.75rem;">
+                <label for="act-school">School Name</label>
+                <input type="text" id="act-school" class="form-control" placeholder="e.g. ABC School" value="">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="act-machine">Machine Hardware ID</label>
+                <input type="text" id="act-machine" class="form-control" value="A1B2C3D4">
+              </div>
+
+              <button class="btn btn-primary btn-block" onclick="activateLicence()"><i class="fa-solid fa-circle-check"></i> Submit Key Activation</button>
+            </div>
+          </div>
+
+          <div class="sh" style="margin-top: 2rem;">Licence Event History (POST /licence/event Logs)</div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Event Name</th>
+                  <th>Machine ID</th>
+                  <th>Days Left</th>
+                  <th>App Version</th>
+                  <th>Server Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="licence-events-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- API DOCS TAB -->
+        <div id="api-docs" class="panel">
+          <div class="sh">Base URL & Authentication</div>
+          <div class="code">Base URL:  http://localhost:3000/v1
+Content-Type: application/json
+Authorization: Bearer {your_api_key_or_token}
+X-Device-ID: {machine_id}
+X-School-ID: {school_id}</div>
+
+          <div class="sh">Endpoints & Documentation</div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Endpoint</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="tag t-green">POST</span></td>
+                  <td><code>/auth/login</code></td>
+                  <td>Authenticates user. Returns role and token.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-green">POST</span></td>
+                  <td><code>/scan</code></td>
+                  <td>Record single scan. Returns 409 if duplicate. Checks API Key header.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-green">POST</span></td>
+                  <td><code>/scan/batch</code></td>
+                  <td>Sync offline scans in batch. Checks API Key header.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-blue">GET</span></td>
+                  <td><code>/cards</code></td>
+                  <td>Fetch registered cards for the school. Checks token.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-green">POST</span></td>
+                  <td><code>/cards</code></td>
+                  <td>Register a new card. Checks token.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-amber">PUT</span></td>
+                  <td><code>/cards/{card_id}</code></td>
+                  <td>Update card metadata. Checks token.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-red">DELETE</span></td>
+                  <td><code>/cards/{card_id}</code></td>
+                  <td>Deactivate card (active = false). Checks token.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-blue">GET</span></td>
+                  <td><code>/attendance</code></td>
+                  <td>Fetch attendance records. Checks token.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-blue">GET</span></td>
+                  <td><code>/attendance/summary</code></td>
+                  <td>Get summary stats for date range. Checks token.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-blue">GET</span></td>
+                  <td><code>/attendance/absent</code></td>
+                  <td>Get absent list for date. Checks token.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-green">POST</span></td>
+                  <td><code>/licence/activate</code></td>
+                  <td>Activate licence key. Returns API Key.</td>
+                </tr>
+                <tr>
+                  <td><span class="tag t-blue">GET</span></td>
+                  <td><code>/ping</code></td>
+                  <td>Health Check & verification.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- REGISTER NEW CARD MODAL -->
+  <div class="modal-overlay" id="register-card-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Register New RFID Card</h3>
+        <button class="modal-close" onclick="closeRegisterCardModal()">&times;</button>
+      </div>
+      <div class="form-group" style="margin-bottom: 0.75rem;">
+        <label for="reg-card-id">Card ID (RFID Number)</label>
+        <input type="text" id="reg-card-id" class="form-control" placeholder="e.g. 1001001011">
+      </div>
+      <div class="form-group" style="margin-bottom: 0.75rem;">
+        <label for="reg-card-name">Full Name</label>
+        <input type="text" id="reg-card-name" class="form-control" placeholder="e.g. Ramesh Chandra">
+      </div>
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label for="reg-card-dept">Department</label>
+        <select id="reg-card-dept" class="form-control">
+          <option value="Teaching">Teaching</option>
+          <option value="Admin">Admin</option>
+          <option value="Support">Support</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeRegisterCardModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitRegisterCard()">Register Card</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT CARD MODAL -->
+  <div class="modal-overlay" id="edit-card-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Card Details</h3>
+        <button class="modal-close" onclick="closeEditCardModal()">&times;</button>
+      </div>
+      <input type="hidden" id="edit-card-id">
+      <div class="form-group" style="margin-bottom: 0.75rem;">
+        <label>Card ID</label>
+        <input type="text" id="edit-card-id-display" class="form-control" readonly style="opacity: 0.6;">
+      </div>
+      <div class="form-group" style="margin-bottom: 0.75rem;">
+        <label for="edit-card-name">Full Name</label>
+        <input type="text" id="edit-card-name" class="form-control">
+      </div>
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label for="edit-card-dept">Department</label>
+        <select id="edit-card-dept" class="form-control">
+          <option value="Teaching">Teaching</option>
+          <option value="Admin">Admin</option>
+          <option value="Support">Support</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeEditCardModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitEditCard()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD NEW SCHOOL TENANT MODAL -->
+  <div class="modal-overlay" id="add-school-modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Register New School Tenant</h3>
+        <button class="modal-close" onclick="closeAddSchoolModal()">&times;</button>
+      </div>
+      
+      <div class="form-group" style="margin-bottom: 0.75rem;">
+        <label for="new-school-name">School Name</label>
+        <input type="text" id="new-school-name" class="form-control" placeholder="e.g. Kendriya Vidyalaya">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+        <div class="form-group">
+          <label for="new-school-username">Admin Username</label>
+          <input type="text" id="new-school-username" class="form-control" placeholder="e.g. school3">
+        </div>
+        <div class="form-group">
+          <label for="new-school-password">Admin Password/Key</label>
+          <input type="text" id="new-school-password" class="form-control" placeholder="Password">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+        <div class="form-group">
+          <label for="new-school-start">Subscription Start Date</label>
+          <input type="date" id="new-school-start" class="form-control" onclick="try { this.showPicker(); } catch(e) {}">
+        </div>
+        <div class="form-group">
+          <label for="new-school-expire">Subscription Expiry Date</label>
+          <input type="date" id="new-school-expire" class="form-control" onclick="try { this.showPicker(); } catch(e) {}">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label for="new-school-paid">Amount Paid (INR)</label>
+        <input type="number" id="new-school-paid" class="form-control" placeholder="e.g. 15000">
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAddSchoolModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="createSchoolTenant()">Create School Tenant</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEACHER DAILY ATTENDANCE SHEET MODAL -->
+  <div class="modal-overlay" id="teacher-details-modal">
+    <div class="modal-content" style="max-width: 800px; width: 95%;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="teacher-details-title">Daily Attendance Sheet</h3>
+        <button class="modal-close" onclick="closeTeacherDetailsModal()">&times;</button>
+      </div>
+      
+      <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--color-text-secondary);">
+        <div>Teacher ID: <strong id="details-teacher-id" style="color: var(--color-text-primary); font-family: var(--font-mono);">-</strong></div>
+        <div>Date Range: <strong id="details-date-range" style="color: var(--color-text-primary);">-</strong></div>
+      </div>
+
+      <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Morning In</th>
+              <th>Afternoon In</th>
+              <th>Out Tap</th>
+              <th>Working Duration</th>
+            </tr>
+          </thead>
+          <tbody id="teacher-details-table-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeTeacherDetailsModal()">Close Sheet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
